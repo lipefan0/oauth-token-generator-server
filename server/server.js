@@ -1,15 +1,30 @@
 import express from 'express';
 import cors from 'cors';
-import * as dotenv from 'dotenv';
-
-dotenv.config();
 
 const app = express();
 
-// Configurar CORS com URLs dinâmicas
+// Lista de origens permitidas
+const allowedOrigins = [
+    'http://localhost:3000',
+    'https://oauth-token-generator.vercel.app',
+    'https://oauth-token-generator.vercel.app/'
+];
+
+// Configuração CORS mais detalhada
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true
+    origin: function(origin, callback) {
+        // Permitir requests sem origin (como apps mobile ou Postman)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    methods: ['GET', 'POST', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 }));
 
 app.use(express.json());
