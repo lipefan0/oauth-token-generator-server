@@ -1,20 +1,7 @@
 {
-  "name": "oauth-token-generator-server",
+  "name": "oauth-token-generator-server-root",
   "version": "1.0.0",
-  "type": "module",
-  "description": "",
-  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server/server.js",
-    "dev": "node server/server.js"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.21.1",
-    "node-fetch": "^3.3.2"
+    "start": "cd server && npm install && npm start"
   }
 }
