@@ -5,6 +5,8 @@ import corsOptions from './config/cors.js';
 import limiter from './config/rate-limit.js';
 import authRoutes from './routes/auth.routes.js';
 import productsRoutes from './routes/products.routes.js'; // Nova importação
+import accountsPayableRoutes from './routes/accounts-payble.routes.js';
+import accountsReceivableRoutes from './routes/accounts-receivable.routes.js';
 
 const app = express();
 
@@ -31,6 +33,8 @@ app.get('/health', (req, res) => {
 // Rotas
 app.use('/auth', authRoutes);
 app.use('/products', productsRoutes); // Novas rotas
+app.use('/accounts/payble', accountsPayableRoutes);
+app.use('/accounts/receivable', accountsReceivableRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {

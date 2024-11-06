@@ -1,26 +1,41 @@
 import ExcelJS from 'exceljs';
 
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function processExcelProducts(buffer, token) {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer);
     
     const worksheet = workbook.getWorksheet(1);
     const results = {
-        total: worksheet.rowCount - 1, // -1 para excluir o cabeçalho
+        message: 'Processamento concluído',
+        total: 0,
         success: 0,
         errors: [],
         processedItems: []
     };
 
-    // Começar da linha 2 para pular o cabeçalho
+    // Pular a primeira linha (cabeçalho)
     for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
         const row = worksheet.getRow(rowNumber);
         
+        // Verificar se a linha tem dados
+        const nome = row.getCell('A').value;
+        const codigo = row.getCell('B').value;
+        const preco = row.getCell('C').value;
+
+        // Pular linhas vazias
+        if (!nome && !codigo && !preco) {
+            continue;
+        }
+
+        results.total++;
+
         try {
             const product = {
-                nome: row.getCell('A').value,
-                codigo: row.getCell('B').value,
-                preco: Number(row.getCell('C').value),
+                nome: nome,
+                codigo: codigo,
+                preco: Number(preco),
                 descricao: row.getCell('D').value || '',
                 unidade: row.getCell('E').value || 'UN'
             };
@@ -30,6 +45,9 @@ export async function processExcelProducts(buffer, token) {
                 throw new Error('Campos obrigatórios ausentes');
             }
 
+            // Aguardar 350ms antes de cada requisição (3 requisições por segundo)
+            await delay(350);
+
             const response = await createProduct(product, token);
             results.success++;
             results.processedItems.push({
@@ -38,15 +56,39 @@ export async function processExcelProducts(buffer, token) {
                 produto: response
             });
         } catch (error) {
+            let errorMessage = error.message;
+            
+            // Tentar fazer parse do erro se for uma string JSON
+            try {
+                if (typeof error.message === 'string' && error.message.includes('TOO_MANY_REQUESTS')) {
+                    // Se for erro de limite, esperar mais tempo e tentar novamente
+                    await delay(1000); // Espera 1 segundo
+                    try {
+                        const response = await createProduct(product, token);
+                        results.success++;
+                        results.processedItems.push({
+                            index: rowNumber - 1,
+                            status: 'success',
+                            produto: response
+                        });
+                        continue; // Pula para o próximo item se a segunda tentativa for bem sucedida
+                    } catch (retryError) {
+                        errorMessage = retryError.message;
+                    }
+                }
+            } catch (parseError) {
+                errorMessage = error.message;
+            }
+
             results.errors.push({
                 index: rowNumber - 1,
                 row: rowNumber,
-                error: error.message
+                error: errorMessage
             });
             results.processedItems.push({
                 index: rowNumber - 1,
                 status: 'error',
-                error: error.message
+                error: errorMessage
             });
         }
     }
