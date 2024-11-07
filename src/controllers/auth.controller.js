@@ -13,9 +13,17 @@ export async function handleCallback(req, res) {
     res.redirect(redirectUrl);
 }
 
+// src/controllers/auth.controller.js
 export async function handleExchangeToken(req, res) {
     const { code, clientId, clientSecret } = req.body;
     const REDIRECT_URI = process.env.CALLBACK_URL;
+    
+    console.log('Dados recebidos:', {
+        code,
+        clientId,
+        clientSecret,
+        redirectUri: REDIRECT_URI
+    });
     
     if (!REDIRECT_URI) {
         return res.status(500).json({ error: 'CALLBACK_URL não configurada' });
@@ -23,10 +31,27 @@ export async function handleExchangeToken(req, res) {
     
     try {
         const tokenData = await blingService.exchangeToken(code, clientId, clientSecret, REDIRECT_URI);
-        res.json(tokenData);
+        
+        // Log do token recebido (sem expor dados sensíveis)
+        console.log('Token obtido com sucesso:', {
+            access_token: tokenData.access_token ? 'presente' : 'ausente',
+            expires_in: tokenData.expires_in,
+            token_type: tokenData.token_type,
+            scope: tokenData.scope ? 'presente' : 'ausente'
+        });
+        
+        // Retorna os dados do token diretamente
+        return res.json(tokenData);
     } catch (error) {
-        console.error('Exchange token error:', error);
-        res.status(500).json({ error: error.message });
+        console.error('Exchange token error detalhado:', {
+            message: error.message,
+            stack: error.stack
+        });
+        
+        return res.status(500).json({ 
+            error: error.message,
+            details: error.response?.data || {}
+        });
     }
 }
 

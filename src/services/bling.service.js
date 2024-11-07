@@ -15,6 +15,7 @@ export async function verifyToken(token) {
     }
 }
 
+// src/services/bling.service.js
 export async function exchangeToken(code, clientId, clientSecret, redirectUri) {
     const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
     
@@ -33,12 +34,28 @@ export async function exchangeToken(code, clientId, clientSecret, redirectUri) {
             }).toString()
         });
 
-        if (!response.ok) {
-            throw new Error('Failed to exchange token');
+        const responseText = await response.text();
+        console.log('Resposta bruta do Bling:', responseText);
+
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (e) {
+            throw new Error(`Erro ao processar resposta: ${responseText}`);
         }
 
-        return await response.json();
+        // Log do objeto data completo
+        console.log('Dados do token:', data);
+
+        // Verifica se temos os dados necessários
+        if (!data.access_token) {
+            throw new Error('Token não recebido do Bling');
+        }
+
+        // Retorna o objeto completo
+        return data;
     } catch (error) {
-        throw error;
+        console.error('Erro completo:', error);
+        throw new Error(error.message || 'Erro ao trocar token');
     }
 }
