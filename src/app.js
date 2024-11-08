@@ -8,6 +8,7 @@ import productsRoutes from './routes/products.routes.js'; // Nova importação
 import accountsPayableRoutes from './routes/accounts-payble.routes.js';
 import accountsReceivableRoutes from './routes/accounts-receivable.routes.js';
 import customersRoutes from './routes/customers.routes.js'
+import referenceRoutes from './routes/reference.routes.js';
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/products', productsRoutes); // Novas rotas
 app.use('/accounts/payble', accountsPayableRoutes);
 app.use('/accounts/receivable', accountsReceivableRoutes);
 app.use('/customers', customersRoutes);
+app.use('/reference', referenceRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {

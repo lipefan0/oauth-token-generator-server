@@ -1,4 +1,5 @@
-// src/services/reference.service.js
+// Alternativa com exportações individuais
+
 export async function getPortadores(token) {
     try {
         const response = await fetch('https://www.bling.com.br/Api/v3/contas-contabeis', {
