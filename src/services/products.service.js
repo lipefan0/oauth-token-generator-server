@@ -15,39 +15,39 @@ export async function processExcelProducts(buffer, token) {
         processedItems: []
     };
 
-    // Pular a primeira linha (cabeçalho)
     for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
         const row = worksheet.getRow(rowNumber);
         
-        // Verificar se a linha tem dados
+        // Verificar campos obrigatórios
         const nome = row.getCell('A').value;
         const codigo = row.getCell('B').value;
         const preco = row.getCell('C').value;
 
-        // Pular linhas vazias
-        if (!nome && !codigo && !preco) {
-            continue;
-        }
+        if (!nome && !codigo && !preco) continue;
 
         results.total++;
 
         try {
             const product = {
-                nome: nome,
-                codigo: codigo,
+                nome,
+                codigo,
                 preco: Number(preco),
                 descricao: row.getCell('D').value || '',
-                unidade: row.getCell('E').value || 'UN'
+                descricaoComplementar: row.getCell('E').value || '',
+                unidade: row.getCell('F').value || 'UN',
+                marca: row.getCell('G').value || '',
+                gtin: row.getCell('H').value?.toString() || '',
+                ncm: row.getCell('I').value?.toString() || '',
+                cest: row.getCell('J').value?.toString() || '',
+                pesoLiquido: Number(row.getCell('K').value) || 0,
+                pesoBruto: Number(row.getCell('L').value) || 0,
+                altura: Number(row.getCell('M').value) || 0,
+                largura: Number(row.getCell('N').value) || 0,
+                profundidade: Number(row.getCell('O').value) || 0,
+                categoriaId: Number(row.getCell('P').value) || undefined
             };
 
-            // Validação
-            if (!product.nome || !product.codigo || !product.preco) {
-                throw new Error('Campos obrigatórios ausentes');
-            }
-
-            // Aguardar 350ms antes de cada requisição (3 requisições por segundo)
             await delay(350);
-
             const response = await createProduct(product, token);
             results.success++;
             results.processedItems.push({
@@ -96,7 +96,7 @@ export async function processExcelProducts(buffer, token) {
     return results;
 }
 
-export async function getExcelTemplate(req, res) {
+export async function getExcelTemplate() {
     try {
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'Bling Integration';
@@ -113,8 +113,19 @@ export async function getExcelTemplate(req, res) {
             { header: 'Nome*', key: 'nome', width: 40 },
             { header: 'Código*', key: 'codigo', width: 20 },
             { header: 'Preço*', key: 'preco', width: 15, style: { numFmt: 'R$ #,##0.00' } },
-            { header: 'Descrição', key: 'descricao', width: 50 },
-            { header: 'Unidade', key: 'unidade', width: 15 }
+            { header: 'Descrição Curta', key: 'descricao', width: 50 },
+            { header: 'Descrição Complementar', key: 'descricaoComplementar', width: 50 },
+            { header: 'Unidade', key: 'unidade', width: 10 },
+            { header: 'Marca', key: 'marca', width: 20 },
+            { header: 'Código de Barras', key: 'gtin', width: 20 },
+            { header: 'NCM', key: 'ncm', width: 15 },
+            { header: 'CEST', key: 'cest', width: 15 },
+            { header: 'Peso Líquido (kg)', key: 'pesoLiquido', width: 15 },
+            { header: 'Peso Bruto (kg)', key: 'pesoBruto', width: 15 },
+            { header: 'Altura (cm)', key: 'altura', width: 15 },
+            { header: 'Largura (cm)', key: 'largura', width: 15 },
+            { header: 'Profundidade (cm)', key: 'profundidade', width: 15 },
+            { header: 'Categoria ID', key: 'categoriaId', width: 15 }
         ];
 
         // Estilizar cabeçalhos
@@ -135,14 +146,32 @@ export async function getExcelTemplate(req, res) {
             nome: 'Produto Exemplo',
             codigo: 'PROD001',
             preco: 99.90,
-            descricao: 'Descrição detalhada do produto exemplo',
-            unidade: 'UN'
+            descricao: 'Descrição curta do produto exemplo',
+            descricaoComplementar: 'Informações adicionais do produto',
+            unidade: 'UN',
+            marca: 'Marca Exemplo',
+            gtin: '7891234567890',
+            ncm: '85167100',
+            cest: '2103100',
+            pesoLiquido: 0.5,
+            pesoBruto: 0.6,
+            altura: 10,
+            largura: 15,
+            profundidade: 20,
+            categoriaId: 12345
         });
 
-        // Adicionar informações de ajuda
-        worksheet.addRow([]); // Linha em branco
+        // Adicionar legendas e informações de ajuda
+        worksheet.addRow([]);
         worksheet.addRow(['* Campos obrigatórios']);
-        worksheet.getRow(4).font = { italic: true, color: { argb: 'FF808080' } };
+        worksheet.addRow(['Unidades aceitas: UN, PC, CX, KG, MT, M2, M3, etc']);
+        worksheet.addRow(['NCM: Nomenclatura Comum do Mercosul - 8 dígitos']);
+        worksheet.addRow(['CEST: Código Especificador da Substituição Tributária']);
+        
+        // Estilizar legendas
+        for (let i = worksheet.rowCount - 3; i <= worksheet.rowCount; i++) {
+            worksheet.getRow(i).font = { italic: true, color: { argb: 'FF808080' } };
+        }
 
         // Congelar primeira linha
         worksheet.views = [
@@ -156,8 +185,62 @@ export async function getExcelTemplate(req, res) {
     }
 }
 
+export async function listProducts(token) {
+    try {
+        const response = await fetch('https://www.bling.com.br/Api/v3/produtos', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.text();
+            throw new Error(errorData);
+        }
+
+        return await response.json();
+    } catch (error) {
+        throw error;
+    }
+}
+
 export async function createProduct(product, token) {
     try {
+        const payload = {
+            nome: product.nome,
+            codigo: product.codigo,
+            preco: product.preco,
+            tipo: product.tipo || 'P',         // P = Produto, S = Serviço
+            situacao: product.situacao || 'A',  // A = Ativo, I = Inativo
+            formato: product.formato || 'S',    // S = Simples, K = Kit
+            descricaoCurta: product.descricao,
+            descricaoComplementar: product.descricaoComplementar,
+            unidade: product.unidade || 'UN',
+            gtin: product.gtin || '',           // Código de barras
+            gtinEmbalagem: product.gtinEmbalagem || '',
+            marca: product.marca,
+            categoria: product.categoriaId ? {
+                id: product.categoriaId
+            } : undefined,
+            dimensoes: {
+                largura: product.largura || 0,
+                altura: product.altura || 0,
+                profundidade: product.profundidade || 0,
+                unidadeMedida: product.unidadeMedida || 1  // 1 = Centímetros
+            },
+            pesoLiquido: product.pesoLiquido || 0,
+            pesoBruto: product.pesoBruto || 0,
+            volumes: product.volumes || 1,
+            itensPorCaixa: product.itensPorCaixa || 1,
+            tributacao: {
+                origem: product.origem || 0,  // 0 = Nacional
+                ncm: product.ncm || '',
+                cest: product.cest || ''
+            }
+        };
+
         const response = await fetch('https://www.bling.com.br/Api/v3/produtos', {
             method: 'POST',
             headers: {
@@ -165,16 +248,7 @@ export async function createProduct(product, token) {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({
-                nome: product.nome,
-                codigo: product.codigo,
-                preco: product.preco,
-                tipo: 'P',
-                situacao: 'A',
-                formato: 'S',
-                descricao: product.descricao,
-                unidade: product.unidade || 'UN'
-            })
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {

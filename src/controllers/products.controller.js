@@ -29,6 +29,22 @@ export async function createProduct(req, res) {
     }
 }
 
+export async function listProducts(req, res) {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+            if (!token) {
+                throw { status: 401, message: 'Token não fornecido' };
+            }
+
+            const result = await productsService.listProducts(token);
+            res.json(result);
+    } catch (error) {
+        res.status(error.status || 500).json({
+            message: error.message
+        });
+    }
+}
+
 
 export async function uploadProducts(req, res) {
     const token = req.headers.authorization?.split(' ')[1];
