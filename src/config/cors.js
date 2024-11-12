@@ -1,7 +1,8 @@
-const allowedOrigins = [
+// config/cors.js
+export const allowedOrigins = [
     'http://localhost:3000',
-    'https://oauth-token-generator.vercel.app',
-    'https://oauth-token-generator.vercel.app/'
+    'https://contis-projeto.vercel.app',
+    'https://contis-projeto.vercel.app/'
 ];
 
 const corsOptions = {
