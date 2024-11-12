@@ -16,7 +16,7 @@ export async function handleCallback(req, res) {
 // src/controllers/auth.controller.js
 export async function handleExchangeToken(req, res) {
     const { code, clientId, clientSecret } = req.body;
-    const REDIRECT_URI = process.env.CALLBACK_URL;
+    const REDIRECT_URI = "https://oauth-token-generator-server.onrender.com/auth/callback";
     
     console.log('Dados recebidos:', {
         code,
