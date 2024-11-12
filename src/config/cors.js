@@ -7,17 +7,32 @@ export const allowedOrigins = [
 
 const corsOptions = {
     origin: function(origin, callback) {
-        if (!origin) return callback(null, true);
+        // Log para debug
+        console.log('Request origin:', origin);
+        
+        // Permite requests sem origin em desenvolvimento
+        if (!origin || process.env.NODE_ENV === 'development') {
+            return callback(null, true);
+        }
         
         if (allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
+            console.log('Blocked origin:', origin);
             callback(new Error('Not allowed by CORS'));
         }
     },
-    methods: ['GET', 'POST', 'OPTIONS'],
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'Accept',
+        'X-Requested-With',
+        'Origin'
+    ],
+    exposedHeaders: ['Content-Range', 'X-Total-Count'],
+    maxAge: 86400
 };
 
 export default corsOptions;

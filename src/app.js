@@ -12,23 +12,32 @@ import referenceRoutes from './routes/reference.routes.js';
 
 const app = express();
 
-// Middleware de logging para debug de CORS
+// Configurar trust proxy antes de qualquer middleware
+app.set('trust proxy', 1);
+
+// Middleware de logging para debug
 app.use((req, res, next) => {
-    const origin = req.get('origin');
-    console.log(`Request from origin: ${origin}`);
-    console.log(`Is origin allowed: ${allowedOrigins.includes(origin)}`);
+    console.log('Request Details:', {
+        ip: req.ip,
+        originalUrl: req.originalUrl,
+        method: req.method,
+        origin: req.get('origin'),
+        forwardedFor: req.get('x-forwarded-for'),
+        realIp: req.get('x-real-ip')
+    });
     next();
 });
 
-app.use(limiter);
 app.use(cors(corsOptions));
+app.use(limiter);
 app.use(express.json());
 
 // Health check routes
 app.get('/', (req, res) => {
     res.status(200).json({
         status: 'online',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV
     });
 });
 
@@ -36,7 +45,8 @@ app.get('/health', (req, res) => {
     res.status(200).json({
         status: 'OK',
         uptime: process.uptime(),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV
     });
 });
 
@@ -48,34 +58,25 @@ app.use('/accounts/receivable', accountsReceivableRoutes);
 app.use('/customers', customersRoutes);
 app.use('/reference', referenceRoutes);
 
-// Error handling específico para CORS
+// Error handling
 app.use((err, req, res, next) => {
-    if (err.message === 'Not allowed by CORS') {
-        console.error('CORS Error:', {
-            origin: req.get('origin'),
-            allowedOrigins
-        });
-        return res.status(403).json({
-            error: 'CORS Error',
-            message: 'Origin not allowed'
-        });
-    }
-    next(err);
-});
+    console.error('Error:', {
+        message: err.message,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+        code: err.code
+    });
 
-// Error handling geral
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ 
+    res.status(err.status || 500).json({ 
         error: 'Algo deu errado!',
-        message: process.env.NODE_ENV === 'development' ? err.message : undefined
+        message: process.env.NODE_ENV === 'development' ? err.message : 'Erro interno do servidor',
+        code: err.code
     });
 });
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT} - ${new Date().toISOString()}`);
-    console.log('Origens permitidas:', allowedOrigins);
+    console.log('Ambiente:', process.env.NODE_ENV);
 });
 
 export default app;
