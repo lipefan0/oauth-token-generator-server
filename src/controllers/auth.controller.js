@@ -3,7 +3,7 @@ import * as blingService from '../services/bling.service.js';
 
 export async function handleCallback(req, res) {
     const { code, state } = req.query;
-    const frontendUrl = process.env.FRONTEND_URL;
+    const frontendUrl = process.env.FRONTEND_URL?.replace(/\/$/, '');
     
     if (!frontendUrl) {
         return res.status(500).json({ error: 'FRONTEND_URL não configurada' });
@@ -16,7 +16,7 @@ export async function handleCallback(req, res) {
 // src/controllers/auth.controller.js
 export async function handleExchangeToken(req, res) {
     const { code, clientId, clientSecret } = req.body;
-    const REDIRECT_URI = "https://oauth-token-generator-server.onrender.com/auth/callback";
+    const REDIRECT_URI = process.env.CALLBACK_URL;
     
     console.log('Dados recebidos:', {
         code,

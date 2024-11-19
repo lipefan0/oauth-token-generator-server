@@ -49,6 +49,38 @@ class ReferenceController {
             });
         }
     }
+
+    static async getDepositos(req, res) {
+        try {
+            const token = req.headers.authorization?.split(' ')[1];
+            if (!token) {
+                throw { status: 401, message: 'Token não fornecido' };
+            }
+
+            const result = await ReferenceService.getDepositos(token);
+            res.json(result);
+        } catch (error) {
+            res.status(error.status || 500).json({
+                message: error.message
+            });
+        }
+    }
+
+    static async getEstoque(req, res) {
+        try {
+            const token = req.headers.authorization?.split(' ')[1];
+            if (!token) {
+                throw { status: 401, message: 'Token não fornecido' };
+            }
+
+            const result = await ReferenceService.getEstoque(token);
+            res.json(result);
+        } catch (error) {
+            res.status(error.status || 500).json({
+                message: error.message
+            });
+        }
+    }
 }
 
 export default ReferenceController;
