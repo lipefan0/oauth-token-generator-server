@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import * as blingService from '../services/bling.service.js';
 
+const REDIRECT_URI = 'https://app-projeto.api-contis.tech/auth/callback'
 export async function handleCallback(req, res) {
     const { code, state } = req.query;
     const frontendUrl = process.env.FRONTEND_URL?.replace(/\/$/, '');
@@ -16,7 +17,6 @@ export async function handleCallback(req, res) {
 // src/controllers/auth.controller.js
 export async function handleExchangeToken(req, res) {
     const { code, clientId, clientSecret } = req.body;
-    const REDIRECT_URI = process.env.CALLBACK_URL;
     
     console.log('Dados recebidos:', {
         code,
