@@ -111,11 +111,11 @@ export async function processExcelAccountsReceivable(buffer, token) {
         const row = worksheet.getRow(rowNumber);
         
         // Verificar se a linha tem dados
-        const vencimento = row.getCell('A').value;
+        const vencimento = row.getCell('C').value;
         const competencia = row.getCell('B').value;
         const dataEmissao = row.getCell('C').value;
         const valor = row.getCell('D').value;
-        const contatoId = row.getCell('E').value;
+        const contatoId = row.getCell('F').value;
 
         // Pular linhas vazias
         if (!vencimento && !competencia && !dataEmissao && !valor && !contatoId) {
@@ -466,4 +466,148 @@ export async function getTemplateUpdateAccountsReceivable(token) {
     }
 
     return await workbook.xlsx.writeBuffer();
+}
+
+export async function updateAccountsReceivable(buffer, token) {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        
+        const worksheet = workbook.getWorksheet(1);
+        
+        if (worksheet.rowCount <= 1) {
+            return {
+                message: "Planilha vazia",
+                error: "A planilha não contém contas para atualizar. Por favor, utilize o template fornecido."
+            };
+        }
+
+        const results = {
+            message: 'Processamento concluído',
+            total: 0,
+            success: 0,
+            errors: [],
+            processedItems: []
+        };
+
+        async function tryUpdateAccount(account, rowIndex, attempt = 1) {
+                try {
+                    await delay(1500); // 1.5 segundos entre requisições
+            
+                    const response = await fetch(`https://www.bling.com.br/Api/v3/contas/receber/${account.idContaReceber}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify(account.payload)
+                    });
+            
+                    const responseText = await response.text();
+                    let responseData;
+                    
+                    try {
+                        responseData = responseText ? JSON.parse(responseText) : null;
+                    } catch (e) {
+                        throw new Error(`Invalid JSON response: ${responseText}`);
+                    }
+            
+                    if (!response.ok) {
+                        throw new Error(responseData?.error?.message || responseData?.error?.description || 'Unknown error occurred');
+                    }
+            
+                    console.log(`✓ Linha ${rowIndex}: Registro atualizado com sucesso`);
+                    return { success: true, data: responseData };
+                } catch (error) {
+                    console.log(`! Linha ${rowIndex}: Tentativa ${attempt} falhou - ${error.message}`);
+                    
+                    if (attempt < 4) {
+                        const waitTime = Math.pow(2, attempt) * 1000;
+                        console.log(`  → Aguardando ${waitTime/1000}s antes da próxima tentativa...`);
+                        await delay(waitTime);
+                        return tryUpdateAccount(account, rowIndex, attempt + 1);
+                    }
+                    throw error;
+                }
+            }
+
+        for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
+            const row = worksheet.getRow(rowNumber);
+            
+            const idContaReceber = row.getCell('A').value;
+            const situacao = row.getCell('B').value;
+            const vencimento = row.getCell('C').value;
+            const dataEmissao = row.getCell('D').value;
+            const valor = row.getCell('E').value;
+            const contatoId = row.getCell('F').value;
+            const formaPagamentoId = row.getCell('G').value;
+            const portadorId = row.getCell('H').value;
+            const categoriaId = row.getCell('I').value;
+
+            if (!idContaReceber) {
+                continue;
+            }
+
+            results.total++;
+            console.log(`\nProcessando linha ${rowNumber}...`);
+
+            try {
+                const payload = {
+                    vencimento: vencimento instanceof Date ? vencimento.toISOString().split('T')[0] : vencimento,
+                    valor: Number(valor),
+                    contato: {
+                        id: Number(contatoId)
+                    },
+                    dataEmissao: dataEmissao instanceof Date ? dataEmissao.toISOString().split('T')[0] : dataEmissao,
+                    formaPagamento: formaPagamentoId ? { id: Number(formaPagamentoId) } : undefined,
+                    portador: portadorId ? { id: Number(portadorId) } : undefined,
+                    categoria: categoriaId ? { id: Number(categoriaId) } : undefined
+                };
+
+                const camposFaltantes = [];
+                if (!payload.vencimento) camposFaltantes.push('Vencimento');
+                if (!payload.valor) camposFaltantes.push('Valor');
+                if (!payload.contato.id) camposFaltantes.push('ID do Contato');
+
+                if (camposFaltantes.length > 0) {
+                    throw new Error(`Campos obrigatórios ausentes: ${camposFaltantes.join(', ')}`);
+                }
+
+                const account = {
+                    idContaReceber,
+                    payload
+                };
+
+                const result = await tryUpdateAccount(account, rowNumber);
+                results.success++;
+                results.processedItems.push({
+                    index: rowNumber - 1,
+                    status: 'success',
+                    conta: result.data
+                });
+
+            } catch (error) {
+                let errorMessage = error.message;
+                try {
+                    const errorObj = JSON.parse(error.message);
+                    errorMessage = errorObj.error?.description || errorObj.error?.message || error.message;
+                } catch {}
+
+                console.log(`✗ Linha ${rowNumber}: Falha após todas as tentativas:`, errorMessage);
+
+                results.errors.push({
+                    index: rowNumber - 1,
+                    row: rowNumber,
+                    error: errorMessage
+                });
+                results.processedItems.push({
+                    index: rowNumber - 1,
+                    status: 'error',
+                    error: errorMessage
+                });
+            }
+        }
+
+        return results;
+    
 }

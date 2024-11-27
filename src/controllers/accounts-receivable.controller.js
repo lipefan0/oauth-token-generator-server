@@ -60,6 +60,31 @@ export async function uploadAccounts(req, res) {
     }
 }
 
+export async function uploadUpdateAccounts(req, res) {
+    console.log('Headers:', req.headers);
+    console.log('File:', req.file); // Verifique se aparece algo aqui
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+        return res.status(401).json({ error: 'Token não fornecido' });
+    }
+
+    if (!req.file) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    }
+
+    try {
+        const results = await accountsService.updateAccountsReceivable(req.file.buffer, token);
+        res.status(200).json(results);
+    } catch (error) {
+        console.error('Erro no processamento do Excel:', error);
+        res.status(500).json({ 
+            error: 'Erro no processamento do arquivo',
+            message: error.message
+        });
+    }
+}
+
 export async function downloadTemplate(req, res) {
     const token = req.headers.authorization?.split(' ')[1];
     
