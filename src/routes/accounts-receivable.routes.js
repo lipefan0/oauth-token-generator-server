@@ -8,5 +8,7 @@ const router = express.Router();
 router.post('/', accountsController.createAccount);
 router.post('/upload', upload.single('file'), accountsController.uploadAccounts);
 router.get('/template', accountsController.downloadTemplate);
+router.get('/template/update', accountsController.downloadTemplateUpdate)
+
 
 export default router;

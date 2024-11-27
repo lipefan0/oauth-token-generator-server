@@ -318,5 +318,152 @@ export async function getExcelTemplate(token) {
         worksheetPrincipal.addRow(['Não foi possível carregar os dados de referência. Por favor, gere o template novamente.']);
     }
 
+        return await workbook.xlsx.writeBuffer();
+    }
+
+export async function getTemplateUpdateAccountsReceivable(token) {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Contas a Receber');
+    let page = 1;
+    let contasReceber = [];
+
+    while (true) {
+        const response = await fetch(`https://www.bling.com.br/Api/v3/contas/receber?pagina=${page}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.text();
+            throw new Error(errorData);
+        }
+
+        const data = await response.json();
+
+        if (!data.data || data.data.length === 0) {
+            break;
+        }
+
+        contasReceber.push(...data.data); // Armazena os dados da página atual
+        page++; // Avança para a próxima página
+        await delay(1000); // Adiciona delay entre as requisições
+    }
+
+    worksheet.columns = [
+        { header: 'ID', key: 'id', width: 15 },
+        { header: 'Situação', key: 'situacao', width: 15 },
+        { header: 'Vencimento', key: 'vencimento', width: 15 },
+        { header: 'Data Emissão', key: 'dataEmissao', width: 15 },
+        { header: 'Valor', key: 'valor', width: 15 },
+        { header: 'ID do Contato', key: 'contatoId', width: 15 },
+        { header: 'ID Forma Pagamento', key: 'formaPagamentoId', width: 20 },
+        { header: 'ID Conta Contábil', key: 'contaContabilId', width: 20 },
+        { header: 'ID Categoria', key: 'categoriaId', width: 15 }
+    ];
+
+    contasReceber.forEach(conta => {
+        worksheet.addRow({
+            id: conta.id,
+            situacao: conta.situacao,
+            vencimento: conta.vencimento,
+            dataEmissao: conta.dataEmissao,
+            valor: conta.valor,
+            contatoId: conta.contato?.id,
+            formaPagamentoId: conta.formaPagamento?.id,
+            contaContabilId: conta.contaContabil?.id,
+            categoriaId: ""
+        });
+    });
+
+    try {
+        const [portadores, formasPagamento, categorias] = await Promise.all([
+            getPortadores(token),
+            delay(350).then(() => getFormasPagamento(token)),
+            delay(350).then(() => getCategorias(token)) // delay acumulativo para espaçar mais
+        ]);
+
+        // Planilha de Portadores
+        const worksheetPortadores = workbook.addWorksheet('Portadores');
+        worksheetPortadores.columns = [
+            { header: 'ID', key: 'id', width: 15 },
+            { header: 'Descrição', key: 'descricao', width: 50 }
+        ];
+        if (portadores.data) {
+            portadores.data.forEach(portador => {
+                worksheetPortadores.addRow({
+                    id: portador.id,
+                    descricao: portador.descricao
+                });
+            });
+        }
+
+        // Planilha de Formas de Pagamento
+        const worksheetFormas = workbook.addWorksheet('Formas Pagamento');
+        worksheetFormas.columns = [
+            { header: 'ID', key: 'id', width: 15 },
+            { header: 'Descrição', key: 'descricao', width: 50 }
+        ];
+        if (formasPagamento.data) {
+            formasPagamento.data.forEach(forma => {
+                worksheetFormas.addRow({
+                    id: forma.id,
+                    descricao: forma.descricao
+                });
+            });
+        }
+
+        // Planilha de Categorias
+        const worksheetCategorias = workbook.addWorksheet('Categorias');
+        worksheetCategorias.columns = [
+            { header: 'ID', key: 'id', width: 15 },
+            { header: 'Descrição', key: 'descricao', width: 50 }
+        ];
+        if (categorias.data) {
+            categorias.data.forEach(categoria => {
+                worksheetCategorias.addRow({
+                    id: categoria.id,
+                    descricao: categoria.descricao
+                });
+            });
+        }
+
+        // Estilizar todas as planilhas
+        [worksheet, worksheetPortadores, worksheetFormas, worksheetCategorias].forEach(worksheet => {
+            // Estilo do cabeçalho
+            const headerRow = worksheet.getRow(1);
+            headerRow.font = { bold: true, size: 11 };
+            headerRow.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFE0E0E0' }
+            };
+            
+            // Ajustar largura automática
+            worksheet.columns.forEach(column => {
+                column.width = Math.max(column.width || 10, 15);
+            });
+        });
+
+        // Adicionar instruções na planilha principal
+        worksheet.addRow([]);
+        worksheet.addRow(['* Campos obrigatórios']);
+        worksheet.addRow(['Consulte as outras abas para referência:']);
+        worksheet.addRow(['- Aba "Portadores"']);
+        worksheet.addRow(['- Aba "Formas Pagamento"']);
+        worksheet.addRow(['- Aba "Categorias"']);
+        
+        // Formatação das instruções
+        for (let i = worksheet.rowCount - 4; i <= worksheet.rowCount; i++) {
+            worksheet.getRow(i).font = { italic: true, color: { argb: 'FF808080' } };
+        }
+    } catch (error) {
+        console.error('Erro ao buscar dados de referência:', error);
+        worksheet.addRow([]);
+        worksheet.addRow(['Não foi possível carregar os dados de referência. Por favor, gere o template novamente.']);
+    }
+
     return await workbook.xlsx.writeBuffer();
 }

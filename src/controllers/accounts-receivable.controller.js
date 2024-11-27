@@ -100,3 +100,25 @@ export async function downloadTemplateTest(req, res) {
         });
     }
 }
+
+export async function downloadTemplateUpdate(req, res) {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+        return res.status(401).json({ error: 'Token não fornecido' });
+    }
+
+    try {
+        const template = await accountsService.getTemplateUpdateAccountsReceivable(token);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=template_contas_receber.xlsx');
+        res.send(template);
+    } catch (error) {
+        console.error('Erro ao gerar template:', error);
+        res.status(500).json({ 
+            error: 'Erro ao gerar template',
+            message: error.message
+        });
+    }
+
+}
