@@ -9,5 +9,6 @@ router.get('/portadores', ReferenceController.getPortadores);
 router.get('/categorias', ReferenceController.getCategorias);
 router.get('/depositos', ReferenceController.getDepositos);
 router.get('/estoque', ReferenceController.getEstoque);
+router.get('/cliente', ReferenceController.getCliente);
 
 export default router;
