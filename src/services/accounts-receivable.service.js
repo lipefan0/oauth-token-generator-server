@@ -361,7 +361,10 @@ export async function getTemplateUpdateAccountsReceivable(token) {
         { header: 'ID do Contato', key: 'contatoId', width: 15 },
         { header: 'ID Forma Pagamento', key: 'formaPagamentoId', width: 20 },
         { header: 'ID Conta Contábil', key: 'contaContabilId', width: 20 },
-        { header: 'ID Categoria', key: 'categoriaId', width: 15 }
+        { header: 'ID Categoria', key: 'categoriaId', width: 15 },
+        { header: 'Id Origem', key: 'idOrigem' },
+        { header: 'Numero Origem', key: 'numeroOrigem' },
+        { header: 'Historico', key: 'historico' }
     ];
 
     contasReceber.forEach(conta => {
@@ -374,7 +377,10 @@ export async function getTemplateUpdateAccountsReceivable(token) {
             contatoId: conta.contato?.id,
             formaPagamentoId: conta.formaPagamento?.id,
             contaContabilId: conta.contaContabil?.id,
-            categoriaId: ""
+            categoriaId: "",
+            idOrigem: conta.origem?.id,
+            numeroOrigem: conta.origem?.numero,
+            historico: ""
         });
     });
 
@@ -543,6 +549,9 @@ export async function updateAccountsReceivable(buffer, token) {
             const formaPagamentoId = row.getCell('G').value;
             const portadorId = row.getCell('H').value;
             const categoriaId = row.getCell('I').value;
+            const idOrigem = row.getCell('J').value;
+            const numeroOrigem = row.getCell('K').value;
+            const historico = row.getCell('L').value;
 
             if (!idContaReceber) {
                 continue;
@@ -561,7 +570,8 @@ export async function updateAccountsReceivable(buffer, token) {
                     dataEmissao: dataEmissao instanceof Date ? dataEmissao.toISOString().split('T')[0] : dataEmissao,
                     formaPagamento: formaPagamentoId ? { id: Number(formaPagamentoId) } : undefined,
                     portador: portadorId ? { id: Number(portadorId) } : undefined,
-                    categoria: categoriaId ? { id: Number(categoriaId) } : undefined
+                    categoria: categoriaId ? { id: Number(categoriaId) } : undefined,
+                    historico: historico || undefined
                 };
 
                 const camposFaltantes = [];

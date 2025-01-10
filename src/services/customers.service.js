@@ -1,5 +1,6 @@
 // src/services/customers.service.js
 import ExcelJS from "exceljs";
+import fs from "fs";
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -107,8 +108,57 @@ export async function createCustomer(customerData, token) {
 
     return await response.json();
   } catch (error) {
+    await logErrorToExcel(error);
     throw error;
   }
+}
+
+function formatErrorMessage(error) {
+  // Pega o valor bruto da mensagem caso seja um objeto de erro
+  const rawMessage = error?.message ?? String(error);
+
+  try {
+    const parsed = JSON.parse(rawMessage);
+    // Caso exista a propriedade 'fields', retornar apenas os 'msg'
+    if (parsed.error && Array.isArray(parsed.error.fields)) {
+      return parsed.error.fields.map((f) => f.msg).join("; ");
+    }
+    return rawMessage;
+  } catch {
+    // Se não for JSON válido, retorna a string
+    return rawMessage;
+  }
+}
+
+async function logErrorToExcel(error) {
+  const workbook = new ExcelJS.Workbook();
+  const filePath = "errors.xlsx";
+  let worksheet;
+
+  try {
+    await workbook.xlsx.readFile(filePath);
+    worksheet = workbook.getWorksheet("ErrosProcessados");
+    if (!worksheet) {
+      worksheet = workbook.addWorksheet("ErrosProcessados");
+      worksheet.columns = [
+        { header: "Data", key: "data", width: 25 },
+        { header: "Erro", key: "erro", width: 50 },
+      ];
+    }
+  } catch {
+    worksheet = workbook.addWorksheet("ErrosProcessados");
+    worksheet.columns = [
+      { header: "Data", key: "data", width: 25 },
+      { header: "Erro", key: "erro", width: 50 },
+    ];
+  }
+
+  worksheet.addRow({
+    data: new Date().toISOString(),
+    erro: formatErrorMessage(error),
+  });
+
+  await workbook.xlsx.writeFile(filePath);
 }
 
 export async function processExcelCustomers(buffer, token) {
@@ -116,6 +166,12 @@ export async function processExcelCustomers(buffer, token) {
   await workbook.xlsx.load(buffer);
 
   const worksheet = workbook.getWorksheet("Dados");
+
+  // Criar coluna para erros, caso não exista
+  if (!worksheet.getColumn(27).header) {
+    worksheet.getColumn(27).header = "ErroProcessamento";
+    worksheet.getColumn(27).width = 50;
+  }
 
   if (worksheet.rowCount <= 1) {
     return {
@@ -190,15 +246,6 @@ export async function processExcelCustomers(buffer, token) {
       // Validação dos campos obrigatórios
       const camposFaltantes = [];
       if (!customer.nome) camposFaltantes.push("Nome");
-      if (!customer.tipo) camposFaltantes.push("Tipo de Pessoa");
-      if (!customer.numeroDocumento) camposFaltantes.push("CPF/CNPJ");
-      if (!customer.email) camposFaltantes.push("Email");
-      if (!customer.endereco) camposFaltantes.push("Endereço");
-      if (!customer.numero) camposFaltantes.push("Número");
-      if (!customer.bairro) camposFaltantes.push("Bairro");
-      if (!customer.cep) camposFaltantes.push("CEP");
-      if (!customer.municipio) camposFaltantes.push("Município");
-      if (!customer.uf) camposFaltantes.push("UF");
 
       if (camposFaltantes.length > 0) {
         throw new Error(
@@ -207,13 +254,14 @@ export async function processExcelCustomers(buffer, token) {
       }
 
       // Validações específicas
-      if (!["F", "J"].includes(customer.tipo)) {
+      if (customer.tipo && !["F", "J"].includes(customer.tipo)) {
         throw new Error('Tipo de pessoa inválido. Use "Física" ou "Jurídica"');
       }
 
       if (
-        (customer.tipo === "F" && customer.numeroDocumento.length !== 11) ||
-        (customer.tipo === "J" && customer.numeroDocumento.length !== 14)
+        customer.numeroDocumento &&
+        ((customer.tipo === "F" && customer.numeroDocumento.length !== 11) ||
+          (customer.tipo === "J" && customer.numeroDocumento.length !== 14))
       ) {
         throw new Error("CPF/CNPJ com formato inválido");
       }
@@ -229,21 +277,17 @@ export async function processExcelCustomers(buffer, token) {
         contato: response,
       });
     } catch (error) {
-      results.errors.push({
-        index: rowNumber - 1,
-        row: rowNumber,
-        error: error.message,
-      });
-      results.processedItems.push({
-        index: rowNumber - 1,
-        status: "error",
-        error: error.message,
-      });
+      // Escrever o erro diretamente na coluna 27 da planilha
+      row.getCell(27).value = error.fields
+        ? error.fields.map((f) => f.msg).join("; ")
+        : error.message || "Erro desconhecido";
     }
   }
 
-  return results;
+  await workbook.xlsx.writeFile("PlanilhaAtualizada.xlsx");
+  return { message: "Processamento concluído" };
 }
+
 
 export async function getExcelTemplate() {
   const workbook = new ExcelJS.Workbook();

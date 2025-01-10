@@ -53,3 +53,22 @@ export class CustomersController {
     }
   }
 }
+
+export async function downloadErrors(req, res) {
+  try {
+    const filePath = path.join(__dirname, '../../erros.xlsx');
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=erros.xlsx"
+    );
+    res.sendFile(filePath);
+  } catch (error) {
+    res.status(error.status || 500).json({
+      message: error.message,
+    });
+  }
+}

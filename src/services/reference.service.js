@@ -101,22 +101,3 @@ export async function getCliente(token, search) {
         throw error;
     }
 }
-
-
-export async function getEstoque(token) {
-    try {
-        const response = await fetch('https://www.bling.com.br/Api/v3/estoques/saldos?idsProdutos[]=16354146036', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-            }
-        });
-        if (!response.ok) {
-            throw new Error('Erro ao buscar estoques');
-        }
-        return await response.json();
-    } catch (error) {
-        throw error;
-    }
-}
